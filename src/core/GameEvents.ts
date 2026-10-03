@@ -3,4 +3,5 @@ export const GAME_EVENTS = {
   MAP_GENERATED: 'map:generated',
   TILE_HOVERED: 'tile:hovered',
   TILE_HOVER_ENDED: 'tile:hoverEnded',
+  STORAGE_CHANGED: 'storage:changed',
 } as const;

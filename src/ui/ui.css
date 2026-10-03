@@ -49,3 +49,75 @@
 .tile-tooltip__value {
   margin-bottom: 6px;
 }
+
+.storage-panel {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  background: rgba(20, 20, 24, 0.92);
+  border-right: 1px solid #555;
+  color: #eee;
+  font: 13px/1.4 system-ui, sans-serif;
+  z-index: 5;
+}
+
+.storage-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px 2px 2px;
+  border-radius: 3px;
+  cursor: default;
+}
+
+.storage-panel__row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.storage-panel__icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.storage-panel__amount {
+  min-width: 48px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.storage-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  max-width: 200px;
+  padding: 6px 10px;
+  background: rgba(20, 20, 24, 0.92);
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #eee;
+  font: 13px/1.4 system-ui, sans-serif;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.storage-tooltip[hidden] {
+  display: none;
+}
+
+.storage-tooltip__title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.storage-tooltip__description {
+  color: #aaa;
+  font-size: 12px;
+}

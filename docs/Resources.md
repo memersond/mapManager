@@ -12,4 +12,4 @@
 - Stored on `MapData.resources`, a `Map` keyed by cell index (sparse).
 
 ## Rendering (`src/resources/ResourceRenderer.ts`)
-- One sprite per node from the shared atlas. `variant` mode picks a frame by hashing the cell; `animate` mode loops with a random start frame.
+- One sprite per node from the shared atlas. `variant` mode picks a frame by hashing the cell; `animate` mode loops with a random start frame, scaled by `animationSpeed` (per resource lever).

@@ -8,6 +8,9 @@ import { MapRenderer } from '../map/MapRenderer';
 import { TileHighlight } from '../map/TileHighlight';
 import { TileHover } from '../map/TileHover';
 import { ResourceRenderer } from '../resources/ResourceRenderer';
+import { STARTING_STORAGE } from '../storage/items';
+import { Storage } from '../storage/Storage';
+import { StoragePanel } from '../ui/StoragePanel';
 import { TileTooltip } from '../ui/TileTooltip';
 
 const MAP_WIDTH = 256;
@@ -17,6 +20,7 @@ export class MainScene extends Phaser.Scene {
   private cameraController!: CameraController;
   private tileHover!: TileHover;
   private tileHighlight!: TileHighlight;
+  storage!: Storage;
 
   constructor() {
     super('MainScene');
@@ -30,7 +34,12 @@ export class MainScene extends Phaser.Scene {
     this.tileHighlight = new TileHighlight(this);
 
     const tileTooltip = new TileTooltip();
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => tileTooltip.destroy());
+    this.storage = new Storage(STARTING_STORAGE);
+    const storagePanel = new StoragePanel(this, this.storage);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      tileTooltip.destroy();
+      storagePanel.destroy();
+    });
 
     this.input.keyboard!.on('keydown-R', () => this.generate());
     this.generate();

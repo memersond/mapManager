@@ -15,6 +15,8 @@ export interface ResourceDef {
   name: string;
   sprite: string;
   spriteMode: SpriteMode;
+  // Multiplier on the Aseprite frame durations for 'animate' mode; below 1 is slower.
+  animationSpeed: number;
   // Chance per cell of spawning on each terrain; terrains not listed never spawn this resource.
   spawnChance: Partial<Record<TerrainId, number>>;
   // Node amount is baseRichness * (1 ± richnessVariance), scaled by RICHNESS_MULTIPLIER.
@@ -32,6 +34,7 @@ export const RESOURCE_DEFS: readonly ResourceDef[] = [
     name: 'Ore',
     sprite: 'ore',
     spriteMode: 'animate',
+    animationSpeed: 1,
     spawnChance: { [TERRAIN.STONE]: 0.008, [TERRAIN.GRASS]: 0.001, [TERRAIN.SAND]: 0.001 },
     baseRichness: 500,
     richnessVariance: 0.15,
@@ -40,7 +43,8 @@ export const RESOURCE_DEFS: readonly ResourceDef[] = [
     id: RESOURCE.TREE,
     name: 'Tree',
     sprite: 'trees',
-    spriteMode: 'variant',
+    spriteMode: 'animate',
+    animationSpeed: 0.4,
     spawnChance: { [TERRAIN.GRASS]: 0.03 },
     baseRichness: 200,
     richnessVariance: 0.15,

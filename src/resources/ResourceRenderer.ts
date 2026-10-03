@@ -30,7 +30,11 @@ export class ResourceRenderer {
 
       // Random start frame so neighbouring nodes don't animate in lockstep.
       if (def.spriteMode === 'animate' && frameCount > 1) {
-        sprite.play({ key: animationKey(def.sprite), startFrame: Math.floor(Math.random() * frameCount) });
+        sprite.play({
+          key: animationKey(def.sprite),
+          startFrame: Math.floor(Math.random() * frameCount),
+          timeScale: def.animationSpeed,
+        });
       }
       this.sprites.push(sprite);
     }

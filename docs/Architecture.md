@@ -13,6 +13,8 @@
 - `src/map/` — map data, generation and rendering. See [[Map]].
 - `src/camera/` — camera input controls.
 - `src/resources/` — resource definitions, placement and rendering. See [[Resources]].
+- `src/storage/` — item definitions and the player's stockpile. See [[Storage]].
+- `src/ui/` — DOM overlays (tooltips, panels) drawn above the Phaser canvas.
 - `src/assets/` — sprite atlas loading and animations. See [[Assets]].
 - `tools/` — build tooling (Aseprite → atlas Vite plugin).
 - `assets/` — source Aseprite files.
