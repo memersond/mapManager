@@ -4,27 +4,22 @@ import { EventBus } from '../core/EventBus';
 import { GAME_EVENTS } from '../core/GameEvents';
 import { ITEM_DEFS, type ItemDef, type ItemId } from '../storage/items';
 import type { Storage, StorageChangedPayload } from '../storage/Storage';
-
-const TOOLTIP_OFFSET = 8;
+import { HoverTooltip } from './HoverTooltip';
 
 export class StoragePanel {
   private element: HTMLDivElement;
-  private tooltip: HTMLDivElement;
+  private tooltip = new HoverTooltip();
   private amountElements = new Map<ItemId, HTMLElement>();
 
   constructor(scene: Phaser.Scene, storage: Storage) {
     this.element = document.createElement('div');
     this.element.className = 'storage-panel';
 
-    this.tooltip = document.createElement('div');
-    this.tooltip.className = 'storage-tooltip';
-    this.tooltip.hidden = true;
-
     for (const def of ITEM_DEFS) {
       this.element.appendChild(this.createRow(scene, def, storage.get(def.id)));
     }
 
-    document.body.append(this.element, this.tooltip);
+    document.body.appendChild(this.element);
     EventBus.on(GAME_EVENTS.STORAGE_CHANGED, this.onStorageChanged, this);
   }
 
@@ -43,20 +38,11 @@ export class StoragePanel {
     this.amountElements.set(def.id, amountElement);
 
     row.append(icon, amountElement);
-    row.addEventListener('mouseenter', () => this.showTooltip(row, def));
-    row.addEventListener('mouseleave', () => (this.tooltip.hidden = true));
+    this.tooltip.attach(row, 'right', () => `
+      <div class="hover-tooltip__title">${def.name}</div>
+      <div class="hover-tooltip__description">${def.description}</div>
+    `);
     return row;
-  }
-
-  private showTooltip(row: HTMLElement, def: ItemDef) {
-    this.tooltip.innerHTML = `
-      <div class="storage-tooltip__title">${def.name}</div>
-      <div class="storage-tooltip__description">${def.description}</div>
-    `;
-    this.tooltip.hidden = false;
-    const rect = row.getBoundingClientRect();
-    const top = rect.top + (rect.height - this.tooltip.offsetHeight) / 2;
-    this.tooltip.style.transform = `translate(${rect.right + TOOLTIP_OFFSET}px, ${top}px)`;
   }
 
   private onStorageChanged({ itemId, amount }: StorageChangedPayload) {
@@ -67,7 +53,7 @@ export class StoragePanel {
   destroy() {
     EventBus.off(GAME_EVENTS.STORAGE_CHANGED, this.onStorageChanged, this);
     this.element.remove();
-    this.tooltip.remove();
+    this.tooltip.destroy();
   }
 }
 

@@ -16,6 +16,9 @@
 - WASD pan, Q/E zoom, middle mouse drag, mouse wheel zoom toward cursor.
 - Min zoom keeps the map filling the screen.
 
+## Movement (`src/map/movement.ts`)
+- `cellsWithinCost` — Dijkstra over terrain movement cost from a set of source cells. Used for city range; intended for transfer times later.
+
 ## Events
 - `MAP_GENERATED` — emitted with `MapData`; renderer and camera react to it independently.
 

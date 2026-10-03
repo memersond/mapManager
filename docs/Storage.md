@@ -10,5 +10,5 @@
 - Every change emits `STORAGE_CHANGED` `{ itemId, amount }` on the `EventBus`.
 
 ## UI (`src/ui/StoragePanel.ts`)
-- DOM panel on the left edge, one row per item with icon and amount; hovering a row shows name and description.
+- DOM panel on the left edge, one row per item with icon and amount; hovering a row shows name and description via the shared `HoverTooltip` (`src/ui/HoverTooltip.ts`).
 - Icons are frame 0 of the item's atlas sprite, converted to a data URL with `textures.getBase64`, so DOM UI reuses the same Aseprite art as the map. See [[Assets]].

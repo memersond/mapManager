@@ -93,11 +93,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-.storage-tooltip {
+.hover-tooltip {
   position: fixed;
   top: 0;
   left: 0;
-  max-width: 200px;
+  max-width: 220px;
   padding: 6px 10px;
   background: rgba(20, 20, 24, 0.92);
   border: 1px solid #555;
@@ -108,16 +108,80 @@
   z-index: 10;
 }
 
-.storage-tooltip[hidden] {
+.hover-tooltip[hidden] {
   display: none;
 }
 
-.storage-tooltip__title {
+.hover-tooltip__title {
   font-weight: 600;
   font-size: 14px;
 }
 
-.storage-tooltip__description {
+.hover-tooltip__description {
   color: #aaa;
   font-size: 12px;
+}
+
+.hover-tooltip__cost {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.hover-tooltip__cost--unaffordable {
+  color: #ff6b6b;
+}
+
+.build-menu {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: rgba(20, 20, 24, 0.92);
+  border: 1px solid #555;
+  border-radius: 4px;
+  z-index: 5;
+}
+
+.build-menu__button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #eee;
+  font: 12px/1.2 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.build-menu__button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.build-menu__button--active {
+  background: rgba(255, 224, 138, 0.15);
+  border-color: #ffe08a;
+}
+
+.build-menu__button--disabled,
+.build-menu__button--disabled:hover {
+  background: transparent;
+  color: #777;
+  cursor: not-allowed;
+}
+
+.build-menu__button--disabled .build-menu__icon {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.build-menu__icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
 }
