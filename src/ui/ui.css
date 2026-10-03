@@ -1,0 +1,47 @@
+.tile-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  min-width: 140px;
+  padding: 8px 10px;
+  background: rgba(20, 20, 24, 0.92);
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #eee;
+  font: 13px/1.4 system-ui, sans-serif;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.tile-tooltip[hidden] {
+  display: none;
+}
+
+.tile-tooltip__title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.tile-tooltip__coords {
+  color: #888;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.tile-tooltip__label {
+  color: #aaa;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tile-tooltip__list {
+  margin: 2px 0 0;
+  padding-left: 16px;
+}
+
+.tile-tooltip__empty {
+  color: #777;
+  list-style: none;
+  margin-left: -16px;
+}

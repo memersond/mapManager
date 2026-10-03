@@ -20,3 +20,9 @@
 
 ## Debug
 - `R` regenerates with a new seed.
+
+## Hover (`src/map/TileHover.ts`, `TileHighlight.ts`, `src/ui/TileTooltip.ts`)
+- `TileHover` converts the pointer to a cell every frame (so it stays correct while the camera pans) and emits `TILE_HOVERED` with `CellInfo` only when the cell changes, or `TILE_HOVER_ENDED`.
+- `TileHighlight` draws the outline; its line width is scaled by zoom to stay the same on screen.
+- `TileTooltip` is a DOM element, not Phaser. Decision: menus and panels are HTML/CSS overlays (`src/ui/`), since they're easier to lay out and style than in-canvas UI.
+- `getCellInfo` in `MapData.ts` is the single place cell details are assembled. `resources` is empty until resources exist.

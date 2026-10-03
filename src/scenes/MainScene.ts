@@ -5,12 +5,17 @@ import { GAME_EVENTS } from '../core/GameEvents';
 import { randomSeed } from '../core/random';
 import { generateMap } from '../map/MapGenerator';
 import { MapRenderer } from '../map/MapRenderer';
+import { TileHighlight } from '../map/TileHighlight';
+import { TileHover } from '../map/TileHover';
+import { TileTooltip } from '../ui/TileTooltip';
 
 const MAP_WIDTH = 256;
 const MAP_HEIGHT = 256;
 
 export class MainScene extends Phaser.Scene {
   private cameraController!: CameraController;
+  private tileHover!: TileHover;
+  private tileHighlight!: TileHighlight;
 
   constructor() {
     super('MainScene');
@@ -19,6 +24,11 @@ export class MainScene extends Phaser.Scene {
   create() {
     new MapRenderer(this);
     this.cameraController = new CameraController(this);
+    this.tileHover = new TileHover(this);
+    this.tileHighlight = new TileHighlight(this);
+
+    const tileTooltip = new TileTooltip();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => tileTooltip.destroy());
 
     this.input.keyboard!.on('keydown-R', () => this.generate());
     this.generate();
@@ -28,6 +38,8 @@ export class MainScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     this.cameraController.update(delta);
+    this.tileHover.update();
+    this.tileHighlight.update();
   }
 
   private generate(seed = randomSeed()) {
