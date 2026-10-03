@@ -20,6 +20,7 @@ import { BuildMenu } from '../ui/BuildMenu';
 import { ClockPanel } from '../ui/ClockPanel';
 import { StoragePanel } from '../ui/StoragePanel';
 import { TileTooltip } from '../ui/TileTooltip';
+import { TopBar } from '../ui/TopBar';
 
 const MAP_WIDTH = 256;
 const MAP_HEIGHT = 256;
@@ -54,6 +55,7 @@ export class MainScene extends Phaser.Scene {
     this.territoryRenderer = new TerritoryRenderer(this);
     this.buildPlacement = new BuildPlacement(this, this.buildings);
 
+    const topBar = new TopBar();
     const tileTooltip = new TileTooltip();
     const storagePanel = new StoragePanel(this, this.storage);
     const buildMenu = new BuildMenu(this, this.buildings);
@@ -63,6 +65,7 @@ export class MainScene extends Phaser.Scene {
       this.economy.destroy();
       this.clock.destroy();
       clockPanel.destroy();
+      topBar.destroy();
       tileTooltip.destroy();
       storagePanel.destroy();
       buildMenu.destroy();

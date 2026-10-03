@@ -1,3 +1,7 @@
+:root {
+  --top-bar-height: 32px;
+}
+
 .tile-tooltip {
   position: fixed;
   top: 0;
@@ -52,7 +56,7 @@
 
 .storage-panel {
   position: fixed;
-  top: 0;
+  top: var(--top-bar-height);
   bottom: 0;
   left: 0;
   box-sizing: border-box;
@@ -219,7 +223,7 @@
 
 .clock-panel {
   position: fixed;
-  top: 8px;
+  top: calc(var(--top-bar-height) + 8px);
   right: 8px;
   display: flex;
   align-items: center;
@@ -255,4 +259,28 @@
 
 .clock-panel__button[hidden] {
   display: none;
+}
+
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--top-bar-height);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 12px;
+  background: rgba(20, 20, 24, 0.92);
+  border-bottom: 1px solid #555;
+  color: #eee;
+  font: 13px/1.4 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  z-index: 6;
+}
+
+.top-bar__label {
+  color: #aaa;
+  margin-right: 6px;
 }

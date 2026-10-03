@@ -3,8 +3,8 @@ import { EventBus } from '../core/EventBus';
 import { GAME_EVENTS } from '../core/GameEvents';
 import { TILE_SIZE } from '../map/MapRenderer';
 import type { BuildingDef } from './buildings';
-import { BUILDING_DEPTH, createBuildingSprite } from './BuildingRenderer';
-import type { BuildingSystem } from './BuildingSystem';
+import { BUILDING_DEPTH, createBuildingSprite, type BuildingSprite } from './BuildingRenderer';
+import { defaultRect, type BuildingSystem, type Rect } from './BuildingSystem';
 import { TerritoryOverlay } from './TerritoryOverlay';
 
 const GHOST_ALPHA = 0.55;
@@ -27,13 +27,13 @@ export interface BuildModeChangedPayload {
 }
 
 // Shows a ghost of the selected building with its top-left on the hovered tile, plus the territory it would claim.
-// Left click builds, right click or Esc cancels.
+// Left click builds; area buildings are sized by dragging and built on release. Right click or Esc cancels.
 export class BuildPlacement {
   private def: BuildingDef | null = null;
-  private ghost?: Phaser.GameObjects.Sprite;
+  private ghost?: BuildingSprite;
   private preview: TerritoryOverlay;
-  private originX = 0;
-  private originY = 0;
+  private rect: Rect = { x: 0, y: 0, width: 0, height: 0 };
+  private dragStart: { x: number; y: number } | null = null;
   private previewX = NaN;
   private previewY = NaN;
 
@@ -41,24 +41,30 @@ export class BuildPlacement {
     this.preview = new TerritoryOverlay(scene, PREVIEW_STYLE);
     EventBus.on(GAME_EVENTS.BUILD_MODE_CHANGED, this.onModeChanged, this);
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
+    scene.input.on(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);
+    scene.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.onPointerUp, this);
     scene.input.keyboard!.on('keydown-ESC', this.cancel, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 
   update() {
-    if (!this.def || !this.ghost) return;
+    const def = this.def;
+    if (!def || !this.ghost) return;
 
-    const visible = this.scene.input.isOver;
+    const visible = this.scene.input.isOver || this.dragStart !== null;
     this.ghost.setVisible(visible);
     const pointer = this.scene.input.activePointer;
     const world = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
     // Same rounding as TileHover so the footprint's top-left is the highlighted tile.
-    this.originX = Math.floor(world.x / TILE_SIZE);
-    this.originY = Math.floor(world.y / TILE_SIZE);
-    this.ghost.setPosition(this.originX * TILE_SIZE, this.originY * TILE_SIZE);
+    const tileX = Math.floor(world.x / TILE_SIZE);
+    const tileY = Math.floor(world.y / TILE_SIZE);
+    this.rect = this.dragStart && def.area ? dragRect(def, this.dragStart, tileX, tileY) : defaultRect(def, tileX, tileY);
+
+    this.ghost.setPosition(this.rect.x * TILE_SIZE, this.rect.y * TILE_SIZE);
+    if (def.area) this.ghost.setSize(this.rect.width * TILE_SIZE, this.rect.height * TILE_SIZE);
     this.updatePreview(visible);
 
-    const valid = !this.buildings.checkPlacement(this.def, this.originX, this.originY);
+    const valid = !this.buildings.checkPlacement(def, this.rect);
     if (valid) this.ghost.clearTint();
     else this.ghost.setTint(GHOST_INVALID_TINT);
   }
@@ -69,10 +75,10 @@ export class BuildPlacement {
       this.clearPreview();
       return;
     }
-    if (this.originX !== this.previewX || this.originY !== this.previewY) {
-      this.previewX = this.originX;
-      this.previewY = this.originY;
-      const territory = this.buildings.previewTerritory(this.def!, this.originX, this.originY);
+    if (this.rect.x !== this.previewX || this.rect.y !== this.previewY) {
+      this.previewX = this.rect.x;
+      this.previewY = this.rect.y;
+      const territory = this.buildings.previewTerritory(this.def!, this.rect);
       if (territory) this.preview.setMask(territory.map.width, territory.map.height, territory.territory);
       else this.preview.clear();
     }
@@ -87,6 +93,7 @@ export class BuildPlacement {
 
   private onModeChanged({ def }: BuildModeChangedPayload) {
     this.def = def;
+    this.dragStart = null;
     this.clearPreview();
     this.ghost?.destroy();
     this.ghost = def ? createBuildingSprite(this.scene, def).setAlpha(GHOST_ALPHA).setDepth(GHOST_DEPTH) : undefined;
@@ -101,7 +108,19 @@ export class BuildPlacement {
     if (!pointer.leftButtonDown()) return;
 
     this.update();
-    if (this.buildings.place(this.def, this.originX, this.originY)) this.cancel();
+    if (this.def.area) this.dragStart = { x: this.rect.x, y: this.rect.y };
+    else this.tryPlace();
+  }
+
+  private onPointerUp(pointer: Phaser.Input.Pointer) {
+    if (!this.def || !this.dragStart || pointer.button !== 0) return;
+    this.update();
+    this.dragStart = null;
+    this.tryPlace();
+  }
+
+  private tryPlace() {
+    if (this.buildings.place(this.def!, this.rect) && !this.def!.repeatPlacement) this.cancel();
   }
 
   private cancel() {
@@ -113,8 +132,22 @@ export class BuildPlacement {
   destroy() {
     EventBus.off(GAME_EVENTS.BUILD_MODE_CHANGED, this.onModeChanged, this);
     this.scene.input.off(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
+    this.scene.input.off(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this);
+    this.scene.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.onPointerUp, this);
     this.scene.input.keyboard?.off('keydown-ESC', this.cancel, this);
     this.ghost?.destroy();
     this.preview.destroy();
   }
+}
+
+// Spans from the drag start towards the pointer, at least the def's minimum size and at most its area limits.
+function dragRect(def: BuildingDef, start: { x: number; y: number }, tileX: number, tileY: number): Rect {
+  const [x, width] = dragSpan(start.x, tileX, def.width, def.area!.maxWidth);
+  const [y, height] = dragSpan(start.y, tileY, def.height, def.area!.maxHeight);
+  return { x, y, width, height };
+}
+
+function dragSpan(start: number, current: number, min: number, max: number): [number, number] {
+  const size = Phaser.Math.Clamp(Math.abs(current - start) + 1, min, max);
+  return [current >= start ? start : start - size + 1, size];
 }

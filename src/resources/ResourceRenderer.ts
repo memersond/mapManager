@@ -2,17 +2,20 @@ import Phaser from 'phaser';
 import { animationKey, ATLAS_KEY, getSpriteFrameCounts, spriteFrame } from '../assets/SpriteAtlas';
 import { EventBus } from '../core/EventBus';
 import { GAME_EVENTS } from '../core/GameEvents';
+import type { ResourcesClearedPayload } from '../buildings/BuildingSystem';
 import type { MapData } from '../map/MapData';
 import { TILE_SIZE } from '../map/MapRenderer';
 import { getResourceDef } from './resources';
 
 export class ResourceRenderer {
-  private sprites: Phaser.GameObjects.Sprite[] = [];
+  // Keyed by cell index.
+  private sprites = new Map<number, Phaser.GameObjects.Sprite>();
   private frameCounts: Map<string, number>;
 
   constructor(private scene: Phaser.Scene) {
     this.frameCounts = getSpriteFrameCounts(scene);
     EventBus.on(GAME_EVENTS.MAP_GENERATED, this.render, this);
+    EventBus.on(GAME_EVENTS.RESOURCES_CLEARED, this.onCleared, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
 
@@ -36,17 +39,25 @@ export class ResourceRenderer {
           timeScale: def.animationSpeed,
         });
       }
-      this.sprites.push(sprite);
+      this.sprites.set(index, sprite);
+    }
+  }
+
+  private onCleared({ indices }: ResourcesClearedPayload) {
+    for (const index of indices) {
+      this.sprites.get(index)?.destroy();
+      this.sprites.delete(index);
     }
   }
 
   private clear() {
-    for (const sprite of this.sprites) sprite.destroy();
-    this.sprites = [];
+    for (const sprite of this.sprites.values()) sprite.destroy();
+    this.sprites.clear();
   }
 
   destroy() {
     EventBus.off(GAME_EVENTS.MAP_GENERATED, this.render, this);
+    EventBus.off(GAME_EVENTS.RESOURCES_CLEARED, this.onCleared, this);
     this.clear();
   }
 }

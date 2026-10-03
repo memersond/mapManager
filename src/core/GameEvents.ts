@@ -6,8 +6,10 @@ export const GAME_EVENTS = {
   STORAGE_CHANGED: 'storage:changed',
   BUILD_MODE_CHANGED: 'build:modeChanged',
   BUILDING_PLACED: 'building:placed',
+  RESOURCES_CLEARED: 'resources:cleared',
   TERRITORY_CHANGED: 'territory:changed',
   CLOCK_STATE_CHANGED: 'clock:stateChanged',
   TICK: 'clock:tick',
   FLOWS_CHANGED: 'economy:flowsChanged',
+  WORKFORCE_CHANGED: 'economy:workforceChanged',
 } as const;

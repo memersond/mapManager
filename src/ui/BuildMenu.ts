@@ -56,7 +56,7 @@ export class BuildMenu {
       return `
         <div class="hover-tooltip__title">${def.name}</div>
         <div class="hover-tooltip__description">${def.description}</div>
-        <div class="hover-tooltip__cost${costClass}">${formatCost(this.buildings.getCost(def))}</div>
+        <div class="hover-tooltip__cost${costClass}">${formatCost(def, this.buildings.getCost(def, 1))}</div>
       `;
     });
     this.buttons.set(def.id, button);
@@ -90,7 +90,8 @@ export class BuildMenu {
   }
 }
 
-function formatCost(cost: BuildingCost): string {
+function formatCost(def: BuildingDef, cost: BuildingCost): string {
   const parts = (Object.entries(cost) as [ItemId, number][]).map(([id, amount]) => `${amount} ${getItemDef(id).name}`);
-  return parts.length ? `Cost: ${parts.join(', ')}` : 'Free';
+  if (!parts.length) return 'Free';
+  return def.area ? `Cost: ${parts.join(', ')} per tile` : `Cost: ${parts.join(', ')}`;
 }
