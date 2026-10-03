@@ -11,6 +11,7 @@ export interface Building {
   def: BuildingDef;
   x: number;
   y: number;
+  population: number;
 }
 
 export interface BuildingPlacedPayload {
@@ -61,6 +62,10 @@ export class BuildingSystem {
     );
   }
 
+  getBuildings(): readonly Building[] {
+    return this.buildings;
+  }
+
   countBuilt(def: BuildingDef): number {
     return this.buildings.filter((building) => building.def === def).length;
   }
@@ -84,6 +89,21 @@ export class BuildingSystem {
     return this.canAfford(def) ? null : PLACEMENT_ERROR.CANNOT_AFFORD;
   }
 
+  // Territory the building would claim on its own at (x, y), or null if it claims none or the footprint is invalid.
+  previewTerritory(def: BuildingDef, x: number, y: number): TerritoryChangedPayload | null {
+    const map = this.map;
+    if (!map || def.territoryRange <= 0) return null;
+    for (let cy = y; cy < y + def.height; cy++) {
+      for (let cx = x; cx < x + def.width; cx++) {
+        if (!isInBounds(map, cx, cy) || !isPassable(map, cellIndex(map, cx, cy))) return null;
+      }
+    }
+
+    const territory = new Uint8Array(map.width * map.height);
+    for (const index of territoryCells(map, { def, x, y })) territory[index] = 1;
+    return { map, territory };
+  }
+
   place(def: BuildingDef, x: number, y: number): Building | null {
     if (this.checkPlacement(def, x, y) || !this.map) return null;
 
@@ -91,7 +111,7 @@ export class BuildingSystem {
       this.storage.remove(itemId, amount);
     }
 
-    const building: Building = { id: this.nextId++, def, x, y };
+    const building: Building = { id: this.nextId++, def, x, y, population: def.startingPopulation };
     this.buildings.push(building);
     for (const index of footprint(this.map, building)) this.occupancy.set(index, building);
 
@@ -103,9 +123,7 @@ export class BuildingSystem {
   }
 
   private claimTerritory(building: Building) {
-    const map = this.map!;
-    const cells = cellsWithinCost(map, footprint(map, building), building.def.territoryRange);
-    for (const index of cells.keys()) this.territory[index] = 1;
+    for (const index of territoryCells(this.map!, building)) this.territory[index] = 1;
     this.emitTerritory();
   }
 
@@ -127,10 +145,16 @@ export class BuildingSystem {
   }
 }
 
-function footprint(map: MapData, { def, x, y }: Building): number[] {
+type Footprint = Pick<Building, 'def' | 'x' | 'y'>;
+
+function footprint(map: MapData, { def, x, y }: Footprint): number[] {
   const cells: number[] = [];
   for (let cy = y; cy < y + def.height; cy++) {
     for (let cx = x; cx < x + def.width; cx++) cells.push(cellIndex(map, cx, cy));
   }
   return cells;
+}
+
+function territoryCells(map: MapData, building: Footprint): Iterable<number> {
+  return cellsWithinCost(map, footprint(map, building), building.def.territoryRange).keys();
 }

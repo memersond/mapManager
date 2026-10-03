@@ -1,4 +1,4 @@
-import { ITEM, type ItemId } from '../storage/items';
+import { ITEM, type ItemAmounts, type ItemId } from '../storage/items';
 
 export const BUILDING = {
   CITY: 'city',
@@ -23,6 +23,10 @@ export interface BuildingDef {
   requiresTerritory: boolean;
   // Movement cost the building's territory reaches out to; 0 claims no territory.
   territoryRange: number;
+  // Items consumed per tick just to keep the building standing.
+  maintenance: ItemAmounts;
+  // Citizens living here when the building is placed.
+  startingPopulation: number;
 }
 
 // Order here is the display order in the build menu.
@@ -38,6 +42,8 @@ export const BUILDING_DEFS: readonly BuildingDef[] = [
     costGrowth: 0.2,
     requiresTerritory: false,
     territoryRange: 30,
+    maintenance: { [ITEM.WOOD]: 0.5 },
+    startingPopulation: 20,
   },
 ];
 

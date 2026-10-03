@@ -44,6 +44,8 @@ export class BuildMenu {
     label.textContent = def.name;
 
     button.append(icon, label);
+    // Keep focus off the button so Space (pause) doesn't also trigger a click.
+    button.addEventListener('mousedown', (event) => event.preventDefault());
     button.addEventListener('click', () => {
       if (this.selected !== def && !this.buildings.canAfford(def)) return;
       const payload: BuildModeChangedPayload = { def: this.selected === def ? null : def };

@@ -6,6 +6,8 @@ export const ITEM = {
 
 export type ItemId = (typeof ITEM)[keyof typeof ITEM];
 
+export type ItemAmounts = Partial<Record<ItemId, number>>;
+
 export interface ItemDef {
   id: ItemId;
   name: string;

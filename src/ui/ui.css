@@ -185,3 +185,74 @@
   height: 32px;
   image-rendering: pixelated;
 }
+
+.storage-panel__rate {
+  min-width: 36px;
+  font-size: 11px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.flow--positive {
+  color: #6bd36b;
+}
+
+.flow--negative {
+  color: #ff6b6b;
+}
+
+.hover-tooltip__section {
+  margin-top: 6px;
+  color: #aaa;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hover-tooltip__flow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-panel {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  background: rgba(20, 20, 24, 0.92);
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #eee;
+  font: 13px/1.4 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  z-index: 5;
+}
+
+.clock-panel--paused {
+  border-color: #ffe08a;
+}
+
+.clock-panel__button {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid #555;
+  border-radius: 3px;
+  color: #eee;
+  cursor: pointer;
+}
+
+.clock-panel__button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.clock-panel__button[hidden] {
+  display: none;
+}

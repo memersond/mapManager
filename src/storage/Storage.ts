@@ -35,6 +35,13 @@ export class Storage {
     return true;
   }
 
+  // Removes as much as is available, up to amount. Returns what was actually taken.
+  take(itemId: ItemId, amount: number): number {
+    const taken = Math.min(amount, this.get(itemId));
+    if (taken > 0) this.set(itemId, this.get(itemId) - taken);
+    return taken;
+  }
+
   private set(itemId: ItemId, amount: number) {
     this.amounts.set(itemId, amount);
     const payload: StorageChangedPayload = { itemId, amount };
