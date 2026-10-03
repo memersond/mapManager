@@ -57,8 +57,13 @@ export interface BuildingDef {
   // Citizens living here when the building is placed.
   startingPopulation: number;
   jobs: JobRule;
-  // Items produced per worker per tick.
+  // Items produced per worker per tick. Piles up at the building until haulers take it to a city.
   production: ItemAmounts;
+  // Holds goods for the area. Haulers deliver to the nearest one and construction is paid from it.
+  storesGoods: boolean;
+  maxHaulers: number;
+  // Haulers assigned when construction finishes, if citizens are free.
+  defaultHaulers: number;
 }
 
 // Order here is the display order in the build menu.
@@ -66,7 +71,7 @@ export const BUILDING_DEFS: readonly BuildingDef[] = [
   {
     id: BUILDING.CITY,
     name: 'City',
-    description: 'Claims the surrounding land. Other buildings must be built inside its range.',
+    description: 'Claims the surrounding land and stores goods. Other buildings must be built inside its range.',
     sprite: 'city',
     width: 2,
     height: 2,
@@ -80,6 +85,9 @@ export const BUILDING_DEFS: readonly BuildingDef[] = [
     startingPopulation: 20,
     jobs: { kind: 'none' },
     production: {},
+    storesGoods: true,
+    maxHaulers: 20,
+    defaultHaulers: 2,
   },
   {
     id: BUILDING.FARM,
@@ -100,6 +108,9 @@ export const BUILDING_DEFS: readonly BuildingDef[] = [
     startingPopulation: 0,
     jobs: { kind: 'area', cellsPerWorker: 4 },
     production: { [ITEM.FOOD]: 0.3 },
+    storesGoods: false,
+    maxHaulers: 8,
+    defaultHaulers: 1,
   },
   {
     id: BUILDING.WOODCUTTER,
@@ -119,6 +130,9 @@ export const BUILDING_DEFS: readonly BuildingDef[] = [
     startingPopulation: 0,
     jobs: { kind: 'richness', richnessPerWorker: 50, min: 1, max: 6 },
     production: { [ITEM.WOOD]: 0.25 },
+    storesGoods: false,
+    maxHaulers: 8,
+    defaultHaulers: 1,
   },
   {
     id: BUILDING.MINE,
@@ -138,6 +152,9 @@ export const BUILDING_DEFS: readonly BuildingDef[] = [
     startingPopulation: 0,
     jobs: { kind: 'richness', richnessPerWorker: 100, min: 1, max: 8 },
     production: { [ITEM.ORE]: 0.1 },
+    storesGoods: false,
+    maxHaulers: 8,
+    defaultHaulers: 1,
   },
 ];
 

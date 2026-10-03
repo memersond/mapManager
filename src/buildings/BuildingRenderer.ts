@@ -4,15 +4,19 @@ import { EventBus } from '../core/EventBus';
 import { GAME_EVENTS } from '../core/GameEvents';
 import { TILE_SIZE } from '../map/MapRenderer';
 import type { BuildingDef } from './buildings';
-import type { BuildingPlacedPayload } from './BuildingSystem';
+import type { BuildingCancelledPayload, BuildingCompletedPayload, BuildingPlacedPayload } from './BuildingSystem';
 
 export const BUILDING_DEPTH = 1;
+const UNDER_CONSTRUCTION_ALPHA = 0.45;
 
+// Queued buildings are drawn faded until construction completes.
 export class BuildingRenderer {
-  private sprites: BuildingSprite[] = [];
+  private sprites = new Map<number, BuildingSprite>();
 
   constructor(private scene: Phaser.Scene) {
     EventBus.on(GAME_EVENTS.BUILDING_PLACED, this.onPlaced, this);
+    EventBus.on(GAME_EVENTS.BUILDING_COMPLETED, this.onCompleted, this);
+    EventBus.on(GAME_EVENTS.BUILDING_CANCELLED, this.onCancelled, this);
     EventBus.on(GAME_EVENTS.MAP_GENERATED, this.clear, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
   }
@@ -20,17 +24,29 @@ export class BuildingRenderer {
   private onPlaced({ building }: BuildingPlacedPayload) {
     const sprite = createBuildingSprite(this.scene, building.def, building.width, building.height)
       .setPosition(building.x * TILE_SIZE, building.y * TILE_SIZE)
-      .setDepth(BUILDING_DEPTH);
-    this.sprites.push(sprite);
+      .setDepth(BUILDING_DEPTH)
+      .setAlpha(UNDER_CONSTRUCTION_ALPHA);
+    this.sprites.set(building.id, sprite);
+  }
+
+  private onCompleted({ building }: BuildingCompletedPayload) {
+    this.sprites.get(building.id)?.setAlpha(1);
+  }
+
+  private onCancelled({ building }: BuildingCancelledPayload) {
+    this.sprites.get(building.id)?.destroy();
+    this.sprites.delete(building.id);
   }
 
   private clear() {
-    for (const sprite of this.sprites) sprite.destroy();
-    this.sprites = [];
+    for (const sprite of this.sprites.values()) sprite.destroy();
+    this.sprites.clear();
   }
 
   destroy() {
     EventBus.off(GAME_EVENTS.BUILDING_PLACED, this.onPlaced, this);
+    EventBus.off(GAME_EVENTS.BUILDING_COMPLETED, this.onCompleted, this);
+    EventBus.off(GAME_EVENTS.BUILDING_CANCELLED, this.onCancelled, this);
     EventBus.off(GAME_EVENTS.MAP_GENERATED, this.clear, this);
     this.clear();
   }

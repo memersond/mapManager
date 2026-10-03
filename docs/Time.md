@@ -1,10 +1,11 @@
 # Time
 
 ## Clock (`src/time/GameClock.ts`)
-- Time is measured in ticks. Nothing ticks until the first city is placed — placing it is the start of the game. Reset on `MAP_GENERATED`.
+- Time is measured in ticks. Nothing ticks until the first city completes (`BUILDING_COMPLETED`) — placing it is the start of the game. Reset on `MAP_GENERATED`.
 - `update(delta)` (called from `MainScene`) accumulates real time and emits `TICK` `{ tick }` per elapsed interval.
 - `togglePause()` / Space pauses and resumes. Only works once started.
 - Emits `CLOCK_STATE_CHANGED` `{ started, paused, tick }` on start, pause/resume and reset.
+- `tickProgress` — 0–1 fraction of real time into the next tick, for animating between ticks.
 - `setTickInterval(ms)` changes speed at runtime (hook for future speed controls).
 
 ## Levers (`src/time/time.ts`)

@@ -31,3 +31,11 @@ export const STARTING_STORAGE: Readonly<Partial<Record<ItemId, number>>> = {
 export function getItemDef(id: ItemId): ItemDef {
   return ITEM_DEFS.find((def) => def.id === id)!;
 }
+
+export function itemEntries(amounts: ItemAmounts): [ItemId, number][] {
+  return Object.entries(amounts) as [ItemId, number][];
+}
+
+export function addAmounts(target: ItemAmounts, source: ItemAmounts, multiplier = 1) {
+  for (const [itemId, amount] of itemEntries(source)) target[itemId] = (target[itemId] ?? 0) + amount * multiplier;
+}

@@ -1,33 +1,42 @@
 import Phaser from 'phaser';
 import { ATLAS_KEY, spriteFrame } from '../assets/SpriteAtlas';
+import type { BuildingSystem } from '../buildings/BuildingSystem';
 import { EventBus } from '../core/EventBus';
 import { GAME_EVENTS } from '../core/GameEvents';
-import { netFlow, type FlowEntry, type FlowsChangedPayload, type ItemFlows } from '../economy/EconomySystem';
+import type { FlowEntry, FlowsChangedPayload, ItemFlows } from '../economy/EconomySystem';
+import type { LogisticsSystem } from '../logistics/LogisticsSystem';
 import { ITEM_DEFS, type ItemDef, type ItemId } from '../storage/items';
-import type { Storage, StorageChangedPayload } from '../storage/Storage';
+import type { StorageChangedPayload } from '../storage/Storage';
+import { formatAmount, formatLine, formatRate, rateClass } from './format';
 import { HoverTooltip } from './HoverTooltip';
 
+// The rate beside each amount is the average change in city stock over this many ticks.
+// Measured rather than derived from flows, since hauling delays and construction spending make flows misleading.
+const RATE_WINDOW_TICKS = 20;
+
+// Shows goods stored across all cities. Goods at work sites or carried by haulers only appear in the tooltip.
 export class StoragePanel {
   private element: HTMLDivElement;
   private tooltip = new HoverTooltip();
   private amountElements = new Map<ItemId, HTMLElement>();
   private rateElements = new Map<ItemId, HTMLElement>();
+  private history = new Map<ItemId, number[]>();
   private flows: ItemFlows = new Map();
 
-  constructor(scene: Phaser.Scene, storage: Storage) {
+  constructor(scene: Phaser.Scene, private buildings: BuildingSystem, private logistics: LogisticsSystem) {
     this.element = document.createElement('div');
     this.element.className = 'storage-panel';
-
-    for (const def of ITEM_DEFS) {
-      this.element.appendChild(this.createRow(scene, def, storage.get(def.id)));
-    }
-
+    for (const def of ITEM_DEFS) this.element.appendChild(this.createRow(scene, def));
     document.body.appendChild(this.element);
+
     EventBus.on(GAME_EVENTS.STORAGE_CHANGED, this.onStorageChanged, this);
     EventBus.on(GAME_EVENTS.FLOWS_CHANGED, this.onFlowsChanged, this);
+    EventBus.on(GAME_EVENTS.TICK, this.onTick, this);
+    EventBus.on(GAME_EVENTS.MAP_GENERATED, this.onMapGenerated, this);
+    this.refreshAmounts();
   }
 
-  private createRow(scene: Phaser.Scene, def: ItemDef, amount: number): HTMLElement {
+  private createRow(scene: Phaser.Scene, def: ItemDef): HTMLElement {
     const row = document.createElement('div');
     row.className = 'storage-panel__row';
 
@@ -38,7 +47,6 @@ export class StoragePanel {
 
     const amountElement = document.createElement('span');
     amountElement.className = 'storage-panel__amount';
-    amountElement.textContent = formatAmount(amount);
     this.amountElements.set(def.id, amountElement);
 
     const rateElement = document.createElement('span');
@@ -51,6 +59,10 @@ export class StoragePanel {
       return `
         <div class="hover-tooltip__title">${def.name}</div>
         <div class="hover-tooltip__description">${def.description}</div>
+        <div class="hover-tooltip__section">Stock</div>
+        ${formatLine('In cities', formatAmount(this.buildings.getStored(def.id)))}
+        ${formatLine('At work sites', formatAmount(this.logistics.getAtSites(def.id)))}
+        ${formatLine('Being hauled', formatAmount(this.logistics.getInTransit(def.id)))}
         ${formatFlowSection('Producers', entries.filter((entry) => entry.amount > 0))}
         ${formatFlowSection('Consumers', entries.filter((entry) => entry.amount < 0))}
       `;
@@ -58,50 +70,51 @@ export class StoragePanel {
     return row;
   }
 
-  private onStorageChanged({ itemId, amount }: StorageChangedPayload) {
-    const amountElement = this.amountElements.get(itemId);
-    if (amountElement) amountElement.textContent = formatAmount(amount);
+  private onStorageChanged({ itemId }: StorageChangedPayload) {
+    this.amountElements.get(itemId)!.textContent = formatAmount(this.buildings.getStored(itemId));
+  }
+
+  private refreshAmounts() {
+    for (const [itemId, element] of this.amountElements) {
+      element.textContent = formatAmount(this.buildings.getStored(itemId));
+    }
+  }
+
+  private onTick() {
+    for (const [itemId, rateElement] of this.rateElements) {
+      const history = this.history.get(itemId) ?? [];
+      history.push(this.buildings.getStored(itemId));
+      if (history.length > RATE_WINDOW_TICKS + 1) history.shift();
+      this.history.set(itemId, history);
+
+      const rate = history.length > 1 ? (history[history.length - 1] - history[0]) / (history.length - 1) : 0;
+      rateElement.textContent = Math.abs(rate) >= 0.05 ? formatRate(rate) : '';
+      rateElement.className = `storage-panel__rate ${rateClass(rate)}`;
+    }
   }
 
   private onFlowsChanged({ flows }: FlowsChangedPayload) {
     this.flows = flows;
-    for (const [itemId, rateElement] of this.rateElements) {
-      const net = netFlow(flows.get(itemId) ?? []);
-      rateElement.textContent = net ? formatRate(net) : '';
-      rateElement.className = `storage-panel__rate ${rateClass(net)}`;
-    }
+  }
+
+  private onMapGenerated() {
+    this.history.clear();
+    for (const rateElement of this.rateElements.values()) rateElement.textContent = '';
+    this.refreshAmounts();
   }
 
   destroy() {
     EventBus.off(GAME_EVENTS.STORAGE_CHANGED, this.onStorageChanged, this);
     EventBus.off(GAME_EVENTS.FLOWS_CHANGED, this.onFlowsChanged, this);
+    EventBus.off(GAME_EVENTS.TICK, this.onTick, this);
+    EventBus.off(GAME_EVENTS.MAP_GENERATED, this.onMapGenerated, this);
     this.element.remove();
     this.tooltip.destroy();
   }
 }
 
-function formatAmount(amount: number): string {
-  return Math.floor(amount).toLocaleString();
-}
-
-function formatRate(rate: number): string {
-  return rate.toLocaleString(undefined, { maximumFractionDigits: 1, signDisplay: 'exceptZero' });
-}
-
-function rateClass(rate: number): string {
-  if (rate > 0) return 'flow--positive';
-  return rate < 0 ? 'flow--negative' : '';
-}
-
 function formatFlowSection(title: string, entries: FlowEntry[]): string {
   if (!entries.length) return '';
-  const lines = entries
-    .map(({ label, amount }) => `
-      <div class="hover-tooltip__flow">
-        <span>${label}</span>
-        <span class="${rateClass(amount)}">${formatRate(amount)}</span>
-      </div>
-    `)
-    .join('');
+  const lines = entries.map(({ label, amount }) => formatLine(label, formatRate(amount), rateClass(amount))).join('');
   return `<div class="hover-tooltip__section">${title} (per tick)</div>${lines}`;
 }

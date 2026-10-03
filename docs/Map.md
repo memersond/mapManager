@@ -30,3 +30,9 @@
 - `TileHighlight` draws the outline; its line width is scaled by zoom to stay the same on screen.
 - `TileTooltip` is a DOM element, not Phaser. Decision: menus and panels are HTML/CSS overlays (`src/ui/`), since they're easier to lay out and style than in-canvas UI.
 - `getCellInfo` in `MapData.ts` is the single place cell details are assembled, including any resource node and its amount.
+
+## Pathfinding (`src/map/movement.ts`)
+- `cellsWithinCost` — Dijkstra within a cost budget (territory).
+- `shortestPathTree` — multi-source Dijkstra over the whole map: cost, next step and nearest source per cell. `treePath` walks it.
+- `findPath` — cheapest path from any source cell to any target cell.
+- All share one step rule. See [[Logistics]].

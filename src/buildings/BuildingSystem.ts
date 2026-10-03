@@ -1,27 +1,48 @@
 import { EventBus } from '../core/EventBus';
 import { GAME_EVENTS } from '../core/GameEvents';
+import type { RouteNetwork } from '../logistics/RouteNetwork';
 import { cellIndex, isInBounds, type MapData } from '../map/MapData';
 import { cellsWithinCost, isPassable } from '../map/movement';
+import { footprint, rectCells, type Rect } from '../map/rect';
 import type { TerrainId } from '../map/terrain';
-import type { ItemId } from '../storage/items';
-import type { Storage } from '../storage/Storage';
+import { itemEntries, STARTING_STORAGE, type ItemId } from '../storage/items';
+import { Storage } from '../storage/Storage';
 import type { BuildingCost, BuildingDef } from './buildings';
+
+export type { Rect } from '../map/rect';
+
+export type BuildingStatus = 'queued' | 'complete';
 
 export interface Building {
   id: number;
   def: BuildingDef;
+  name: string;
   x: number;
   y: number;
   width: number;
   height: number;
+  status: BuildingStatus;
+  // Locked in at placement; paid by the nearest city before construction completes.
+  cost: BuildingCost;
   population: number;
   // Workers the building can employ.
   jobs: number;
-  // Workers currently assigned, set by EconomySystem.
+  // Assigned by the player through EconomySystem.
   workers: number;
+  haulers: number;
+  // A city's stockpile, or output waiting for pickup at a producer.
+  storage: Storage;
 }
 
 export interface BuildingPlacedPayload {
+  building: Building;
+}
+
+export interface BuildingCompletedPayload {
+  building: Building;
+}
+
+export interface BuildingCancelledPayload {
   building: Building;
 }
 
@@ -35,13 +56,6 @@ export interface TerritoryChangedPayload {
   territory: Uint8Array;
 }
 
-export interface Rect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 export const PLACEMENT_ERROR = {
   OUT_OF_BOUNDS: 'Out of bounds',
   IMPASSABLE: 'Cannot build on impassable terrain',
@@ -51,20 +65,24 @@ export const PLACEMENT_ERROR = {
   MISSING_RESOURCE: 'Must be built on the required resource',
   WRONG_SIZE: 'Invalid size',
   OUTSIDE_TERRITORY: 'Must be built inside a city range',
+  UNREACHABLE: 'No city can reach this spot',
   CANNOT_AFFORD: 'Not enough resources',
 } as const;
 
 export type PlacementError = (typeof PLACEMENT_ERROR)[keyof typeof PLACEMENT_ERROR];
 
 // Owns placed buildings, cell occupancy and territory. Rebuilt from scratch on each new map.
+// Placed buildings are queued until ConstructionSystem completes them, except the first store,
+// which is paid from the starting supplies and completes at once, taking those supplies as its stock.
 export class BuildingSystem {
   private map?: MapData;
   private buildings: Building[] = [];
   private occupancy = new Map<number, Building>();
   private territory = new Uint8Array(0);
+  private supplies = new Storage(STARTING_STORAGE);
   private nextId = 1;
 
-  constructor(private storage: Storage) {
+  constructor(private routes: RouteNetwork) {
     EventBus.on(GAME_EVENTS.MAP_GENERATED, this.onMapGenerated, this);
   }
 
@@ -72,22 +90,36 @@ export class BuildingSystem {
   getCost(def: BuildingDef, cells = def.width * def.height): BuildingCost {
     const multiplier = Math.pow(1 + def.costGrowth, this.countBuilt(def)) * (def.area ? cells : 1);
     const cost: BuildingCost = {};
-    for (const [itemId, amount] of Object.entries(def.cost) as [ItemId, number][]) {
-      cost[itemId] = Math.round(amount * multiplier);
-    }
+    for (const [itemId, amount] of itemEntries(def.cost)) cost[itemId] = Math.round(amount * multiplier);
     return cost;
   }
 
+  // Only the first store has to be affordable up front; everything after it queues until paid.
   canAfford(def: BuildingDef, cells?: number): boolean {
-    return (Object.entries(this.getCost(def, cells)) as [ItemId, number][]).every(([itemId, amount]) =>
-      this.storage.has(itemId, amount),
-    );
+    return this.hasStores() || this.supplies.hasAll(this.getCost(def, cells));
+  }
+
+  hasStores(): boolean {
+    return this.routes.getStores().length > 0;
+  }
+
+  // Goods held across every city, or the starting supplies before the first city.
+  getStored(itemId: ItemId): number {
+    const stores = this.routes.getStores();
+    if (!stores.length) return this.supplies.get(itemId);
+    return stores.reduce((sum, store) => sum + store.storage.get(itemId), 0);
   }
 
   getBuildings(): readonly Building[] {
     return this.buildings;
   }
 
+  getBuildingAt(x: number, y: number): Building | undefined {
+    if (!this.map || !isInBounds(this.map, x, y)) return undefined;
+    return this.occupancy.get(cellIndex(this.map, x, y));
+  }
+
+  // Includes queued buildings so cost growth is locked in at placement.
   countBuilt(def: BuildingDef): number {
     return this.buildings.filter((building) => building.def === def).length;
   }
@@ -115,6 +147,7 @@ export class BuildingSystem {
       if (def.requiresTerritory && !this.territory[index]) return PLACEMENT_ERROR.OUTSIDE_TERRITORY;
     }
 
+    if (this.hasStores() && !this.routes.nearestStore(rect)) return PLACEMENT_ERROR.UNREACHABLE;
     return this.canAfford(def, rect.width * rect.height) ? null : PLACEMENT_ERROR.CANNOT_AFFORD;
   }
 
@@ -135,28 +168,58 @@ export class BuildingSystem {
     const map = this.map;
     if (this.checkPlacement(def, rect) || !map) return null;
 
-    for (const [itemId, amount] of Object.entries(this.getCost(def, rect.width * rect.height)) as [ItemId, number][]) {
-      this.storage.remove(itemId, amount);
-    }
-
     const cells = footprint(map, rect);
     const building: Building = {
       id: this.nextId++,
       def,
+      name: this.nameFor(def),
       ...rect,
-      population: def.startingPopulation,
+      status: 'queued',
+      cost: this.getCost(def, cells.length),
+      population: 0,
       jobs: countJobs(map, def, cells),
       workers: 0,
+      haulers: 0,
+      storage: new Storage(),
     };
     this.buildings.push(building);
     for (const index of cells) this.occupancy.set(index, building);
-    if (def.clearsResources) this.clearResources(map, cells);
 
     const payload: BuildingPlacedPayload = { building };
     EventBus.emit(GAME_EVENTS.BUILDING_PLACED, payload);
 
-    if (def.territoryRange > 0) this.claimTerritory(building);
+    if (def.storesGoods && !this.hasStores()) {
+      for (const [itemId, amount] of itemEntries(building.cost)) this.supplies.remove(itemId, amount);
+      building.storage = this.supplies;
+      this.complete(building);
+    }
     return building;
+  }
+
+  // Called once the cost has been paid.
+  complete(building: Building) {
+    if (building.status === 'complete') return;
+    building.status = 'complete';
+    building.population = building.def.startingPopulation;
+    if (building.def.clearsResources) this.clearResources(this.map!, footprint(this.map!, building));
+
+    const payload: BuildingCompletedPayload = { building };
+    EventBus.emit(GAME_EVENTS.BUILDING_COMPLETED, payload);
+
+    if (building.def.territoryRange > 0) this.claimTerritory(building);
+  }
+
+  // Only queued buildings can be cancelled; nothing has been paid yet so nothing is refunded.
+  cancel(building: Building) {
+    if (building.status !== 'queued') return;
+    this.buildings = this.buildings.filter((other) => other !== building);
+    for (const index of footprint(this.map!, building)) this.occupancy.delete(index);
+    const payload: BuildingCancelledPayload = { building };
+    EventBus.emit(GAME_EVENTS.BUILDING_CANCELLED, payload);
+  }
+
+  private nameFor(def: BuildingDef): string {
+    return def.storesGoods ? `${def.name} ${this.countBuilt(def) + 1}` : def.name;
   }
 
   private clearResources(map: MapData, cells: number[]) {
@@ -176,6 +239,7 @@ export class BuildingSystem {
     this.buildings = [];
     this.occupancy.clear();
     this.territory = new Uint8Array(map.width * map.height);
+    this.supplies = new Storage(STARTING_STORAGE);
     this.emitTerritory();
   }
 
@@ -196,16 +260,6 @@ export function defaultRect(def: BuildingDef, x: number, y: number): Rect {
 function isValidSize(def: BuildingDef, { width, height }: Rect): boolean {
   if (!def.area) return width === def.width && height === def.height;
   return width >= def.width && height >= def.height && width <= def.area.maxWidth && height <= def.area.maxHeight;
-}
-
-function* rectCells({ x, y, width, height }: Rect) {
-  for (let cy = y; cy < y + height; cy++) {
-    for (let cx = x; cx < x + width; cx++) yield { cx, cy };
-  }
-}
-
-function footprint(map: MapData, rect: Rect): number[] {
-  return Array.from(rectCells(rect), ({ cx, cy }) => cellIndex(map, cx, cy));
 }
 
 function territoryCells(map: MapData, def: BuildingDef, rect: Rect): Iterable<number> {

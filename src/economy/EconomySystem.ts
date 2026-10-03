@@ -1,9 +1,11 @@
 import type { BuildingDef } from '../buildings/buildings';
-import type { Building, BuildingSystem } from '../buildings/BuildingSystem';
+import type { Building, BuildingCompletedPayload, BuildingSystem } from '../buildings/BuildingSystem';
 import { EventBus } from '../core/EventBus';
 import { GAME_EVENTS } from '../core/GameEvents';
-import { CITIZEN_UPKEEP } from '../population/population';
-import type { ItemAmounts, ItemId } from '../storage/items';
+import { SITE_STOCK_CAPACITY } from '../logistics/logistics';
+import type { RouteNetwork } from '../logistics/RouteNetwork';
+import { AUTO_STAFF_NEW_BUILDINGS, CITIZEN_UPKEEP } from '../population/population';
+import { itemEntries, type ItemAmounts, type ItemId } from '../storage/items';
 import type { Storage } from '../storage/Storage';
 
 // Per-tick amount: positive for producers, negative for consumers.
@@ -23,15 +25,24 @@ export interface WorkforceChangedPayload {
   employed: number;
 }
 
-const RECOMPUTE_EVENTS = [GAME_EVENTS.BUILDING_PLACED, GAME_EVENTS.MAP_GENERATED];
+export interface StaffingChangedPayload {
+  building: Building;
+}
 
-// Assigns citizens to jobs, works out what every building and citizen produces/consumes per tick,
-// and applies it to storage each tick.
+export type StaffRole = 'workers' | 'haulers';
+
+const RECOMPUTE_EVENTS = [GAME_EVENTS.MAP_GENERATED, GAME_EVENTS.STAFFING_CHANGED];
+
+// Tracks the labour pool and player staffing, works out per-tick flows, and each tick
+// adds production to the producing building's site stock and takes upkeep from city storage.
 export class EconomySystem {
   private flows = new Map<ItemId, FlowEntry[]>();
+  private population = 0;
+  private employed = 0;
 
-  constructor(private storage: Storage, private buildings: BuildingSystem) {
+  constructor(private buildings: BuildingSystem, private routes: RouteNetwork) {
     for (const event of RECOMPUTE_EVENTS) EventBus.on(event, this.recompute, this);
+    EventBus.on(GAME_EVENTS.BUILDING_COMPLETED, this.onBuildingCompleted, this);
     EventBus.on(GAME_EVENTS.TICK, this.onTick, this);
   }
 
@@ -39,40 +50,60 @@ export class EconomySystem {
     return this.flows;
   }
 
+  getAvailable(): number {
+    return this.population - this.employed;
+  }
+
+  // Clamped to the building's limit and the citizens free to take the job.
+  setStaff(building: Building, role: StaffRole, count: number) {
+    const limit = role === 'workers' ? building.jobs : building.def.maxHaulers;
+    const next = Math.max(0, Math.min(count, limit, building[role] + this.getAvailable()));
+    if (building.status !== 'complete' || next === building[role]) return;
+    building[role] = next;
+    const payload: StaffingChangedPayload = { building };
+    EventBus.emit(GAME_EVENTS.STAFFING_CHANGED, payload);
+  }
+
+  private onBuildingCompleted({ building }: BuildingCompletedPayload) {
+    this.recompute();
+    if (!AUTO_STAFF_NEW_BUILDINGS) return;
+    this.setStaff(building, 'workers', building.jobs);
+    this.setStaff(building, 'haulers', building.def.defaultHaulers);
+  }
+
+  private complete(): Building[] {
+    return this.buildings.getBuildings().filter((building) => building.status === 'complete');
+  }
+
   private recompute() {
     this.flows = new Map();
-    const buildings = this.buildings.getBuildings();
-    const buildingCounts = new Map<BuildingDef, number>();
-    let population = 0;
+    this.population = 0;
+    this.employed = 0;
+    const byDef = new Map<BuildingDef, Building[]>();
 
-    for (const building of buildings) {
-      buildingCounts.set(building.def, (buildingCounts.get(building.def) ?? 0) + 1);
-      population += building.population;
+    for (const building of this.complete()) {
+      byDef.set(building.def, [...(byDef.get(building.def) ?? []), building]);
+      this.population += building.population;
+      this.employed += building.workers + building.haulers;
     }
 
-    const workersByDef = assignWorkers(buildings, population);
-    let employed = 0;
-    for (const [def, workers] of workersByDef) {
-      employed += workers;
-      const count = buildingCounts.get(def)!;
-      const name = count > 1 ? `${def.name} ×${count}` : def.name;
-      this.addFlow(`${name} (${workers} workers)`, def.production, workers);
+    for (const [def, group] of byDef) {
+      const name = group.length > 1 ? `${def.name} ×${group.length}` : def.name;
+      const workers = group.reduce((sum, building) => sum + building.workers, 0);
+      if (workers > 0) this.addFlow(`${name} (${workers} workers)`, def.production, workers);
+      this.addFlow(`${name} maintenance`, def.maintenance, -group.length);
     }
-    for (const [def, count] of buildingCounts) {
-      const label = count > 1 ? `${def.name} maintenance ×${count}` : `${def.name} maintenance`;
-      this.addFlow(label, def.maintenance, -count);
-    }
-    if (population > 0) this.addFlow(`Citizens (${population})`, CITIZEN_UPKEEP, -population);
+    if (this.population > 0) this.addFlow(`Citizens (${this.population})`, CITIZEN_UPKEEP, -this.population);
 
     const flowsPayload: FlowsChangedPayload = { flows: this.flows };
     EventBus.emit(GAME_EVENTS.FLOWS_CHANGED, flowsPayload);
-    const workforcePayload: WorkforceChangedPayload = { population, employed };
+    const workforcePayload: WorkforceChangedPayload = { population: this.population, employed: this.employed };
     EventBus.emit(GAME_EVENTS.WORKFORCE_CHANGED, workforcePayload);
   }
 
   // Negative multiplier for consumers.
   private addFlow(label: string, amounts: ItemAmounts, multiplier: number) {
-    for (const [itemId, amount] of Object.entries(amounts) as [ItemId, number][]) {
+    for (const [itemId, amount] of itemEntries(amounts)) {
       const entries = this.flows.get(itemId) ?? [];
       entries.push({ label, amount: amount * multiplier });
       this.flows.set(itemId, entries);
@@ -80,31 +111,33 @@ export class EconomySystem {
   }
 
   private onTick() {
-    for (const [itemId, entries] of this.flows) {
-      const net = netFlow(entries);
-      if (net > 0) this.storage.add(itemId, net);
-      else if (net < 0) this.storage.take(itemId, -net);
+    for (const building of this.complete()) {
+      if (building.workers > 0) produce(building);
+      const payer = building.def.storesGoods ? building : this.routes.nearestStore(building)?.store;
+      if (!payer) continue;
+      consume(payer.storage, building.def.maintenance, 1);
+      consume(payer.storage, CITIZEN_UPKEEP, building.population);
     }
   }
 
   destroy() {
     for (const event of RECOMPUTE_EVENTS) EventBus.off(event, this.recompute, this);
+    EventBus.off(GAME_EVENTS.BUILDING_COMPLETED, this.onBuildingCompleted, this);
     EventBus.off(GAME_EVENTS.TICK, this.onTick, this);
   }
 }
 
-export function netFlow(entries: readonly FlowEntry[]): number {
-  return entries.reduce((sum, entry) => sum + entry.amount, 0);
+// Stores keep their own output; other buildings pile it up for haulers and stop when the pile is full.
+function produce(building: Building) {
+  for (const [itemId, amount] of itemEntries(building.def.production)) {
+    const space = building.def.storesGoods ? Infinity : SITE_STOCK_CAPACITY - building.storage.total();
+    const produced = Math.min(space, amount * building.workers);
+    if (produced > 0) building.storage.add(itemId, produced);
+  }
 }
 
-// Fills jobs in placement order until citizens run out. Returns total workers per building type.
-function assignWorkers(buildings: readonly Building[], population: number): Map<BuildingDef, number> {
-  const totals = new Map<BuildingDef, number>();
-  let available = population;
-  for (const building of buildings) {
-    building.workers = Math.min(building.jobs, available);
-    available -= building.workers;
-    if (building.workers > 0) totals.set(building.def, (totals.get(building.def) ?? 0) + building.workers);
-  }
-  return totals;
+// Shortages are not modelled yet; consumption just clamps at 0.
+function consume(storage: Storage, amounts: ItemAmounts, multiplier: number) {
+  if (multiplier <= 0) return;
+  for (const [itemId, amount] of itemEntries(amounts)) storage.take(itemId, amount * multiplier);
 }

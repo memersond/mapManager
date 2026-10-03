@@ -10,9 +10,15 @@ import { HoverTooltip } from './HoverTooltip';
 
 const ACTIVE_CLASS = 'build-menu__button--active';
 const DISABLED_CLASS = 'build-menu__button--disabled';
+const QUEUE_NOTE = 'Built once the nearest city holds the cost.';
 
 // Affordability is refreshed whenever storage or the building count changes.
-const REFRESH_EVENTS = [GAME_EVENTS.STORAGE_CHANGED, GAME_EVENTS.BUILDING_PLACED, GAME_EVENTS.MAP_GENERATED];
+const REFRESH_EVENTS = [
+  GAME_EVENTS.STORAGE_CHANGED,
+  GAME_EVENTS.BUILDING_PLACED,
+  GAME_EVENTS.BUILDING_COMPLETED,
+  GAME_EVENTS.MAP_GENERATED,
+];
 
 export class BuildMenu {
   private element: HTMLDivElement;
@@ -57,6 +63,7 @@ export class BuildMenu {
         <div class="hover-tooltip__title">${def.name}</div>
         <div class="hover-tooltip__description">${def.description}</div>
         <div class="hover-tooltip__cost${costClass}">${formatCost(def, this.buildings.getCost(def, 1))}</div>
+        ${this.buildings.hasStores() ? `<div class="hover-tooltip__description">${QUEUE_NOTE}</div>` : ''}
       `;
     });
     this.buttons.set(def.id, button);

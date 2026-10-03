@@ -1,8 +1,9 @@
 import { EventBus } from '../core/EventBus';
 import { GAME_EVENTS } from '../core/GameEvents';
-import type { ItemId } from './items';
+import { itemEntries, type ItemAmounts, type ItemId } from './items';
 
 export interface StorageChangedPayload {
+  storage: Storage;
   itemId: ItemId;
   amount: number;
 }
@@ -10,18 +11,27 @@ export interface StorageChangedPayload {
 export class Storage {
   private amounts = new Map<ItemId, number>();
 
-  constructor(initial: Partial<Record<ItemId, number>> = {}) {
-    for (const [itemId, amount] of Object.entries(initial) as [ItemId, number][]) {
-      this.amounts.set(itemId, amount);
-    }
+  constructor(initial: ItemAmounts = {}) {
+    for (const [itemId, amount] of itemEntries(initial)) this.amounts.set(itemId, amount);
   }
 
   get(itemId: ItemId): number {
     return this.amounts.get(itemId) ?? 0;
   }
 
+  // Sum of every item held.
+  total(): number {
+    let sum = 0;
+    for (const amount of this.amounts.values()) sum += amount;
+    return sum;
+  }
+
   has(itemId: ItemId, amount: number): boolean {
     return this.get(itemId) >= amount;
+  }
+
+  hasAll(amounts: ItemAmounts): boolean {
+    return itemEntries(amounts).every(([itemId, amount]) => this.has(itemId, amount));
   }
 
   add(itemId: ItemId, amount: number) {
@@ -44,7 +54,7 @@ export class Storage {
 
   private set(itemId: ItemId, amount: number) {
     this.amounts.set(itemId, amount);
-    const payload: StorageChangedPayload = { itemId, amount };
+    const payload: StorageChangedPayload = { storage: this, itemId, amount };
     EventBus.emit(GAME_EVENTS.STORAGE_CHANGED, payload);
   }
 }

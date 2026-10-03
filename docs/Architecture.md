@@ -16,7 +16,8 @@
 - `src/buildings/` — building definitions, placement and territory. See [[Buildings]].
 - `src/storage/` — item definitions and the player's stockpile. See [[Storage]].
 - `src/time/` — game clock, ticks and pause. See [[Time]].
-- `src/economy/` — per-tick production/consumption. See [[Economy]].
+- `src/economy/` — staffing and per-tick production/consumption. See [[Economy]].
+- `src/logistics/` — routes, haulers and the route overlay. See [[Logistics]].
 - `src/population/` — citizen levers. See [[Economy]].
 - `src/ui/` — DOM overlays (tooltips, panels) drawn above the Phaser canvas.
 - `src/assets/` — sprite atlas loading and animations. See [[Assets]].
