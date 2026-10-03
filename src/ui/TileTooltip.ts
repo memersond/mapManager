@@ -20,12 +20,14 @@ export class TileTooltip {
 
   private onHovered({ cell }: TileHoveredPayload) {
     const resources = cell.resources.length
-      ? cell.resources.map((resource) => `<li>${resource}</li>`).join('')
+      ? cell.resources.map(({ def, amount }) => `<li>${def.name} (${amount})</li>`).join('')
       : '<li class="tile-tooltip__empty">None</li>';
 
     this.element.innerHTML = `
       <div class="tile-tooltip__title">${cell.terrain.name}</div>
       <div class="tile-tooltip__coords">${cell.x}, ${cell.y}</div>
+      <div class="tile-tooltip__label">Movement</div>
+      <div class="tile-tooltip__value">${formatMovement(cell.terrain.movementSpeed)}</div>
       <div class="tile-tooltip__label">Resources</div>
       <ul class="tile-tooltip__list">${resources}</ul>
     `;
@@ -52,4 +54,8 @@ export class TileTooltip {
     EventBus.off(GAME_EVENTS.TILE_HOVER_ENDED, this.onHoverEnded, this);
     this.element.remove();
   }
+}
+
+function formatMovement(speed: number): string {
+  return speed > 0 ? `${Math.round(speed * 100)}%` : 'Impassable';
 }

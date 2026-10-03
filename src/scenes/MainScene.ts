@@ -7,6 +7,7 @@ import { generateMap } from '../map/MapGenerator';
 import { MapRenderer } from '../map/MapRenderer';
 import { TileHighlight } from '../map/TileHighlight';
 import { TileHover } from '../map/TileHover';
+import { ResourceRenderer } from '../resources/ResourceRenderer';
 import { TileTooltip } from '../ui/TileTooltip';
 
 const MAP_WIDTH = 256;
@@ -23,6 +24,7 @@ export class MainScene extends Phaser.Scene {
 
   create() {
     new MapRenderer(this);
+    new ResourceRenderer(this);
     this.cameraController = new CameraController(this);
     this.tileHover = new TileHover(this);
     this.tileHighlight = new TileHighlight(this);

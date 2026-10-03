@@ -1,5 +1,6 @@
 import { createNoise2D } from 'simplex-noise';
 import { createRandom } from '../core/random';
+import { generateResources } from '../resources/ResourceGenerator';
 import type { MapData } from './MapData';
 import { terrainForElevation } from './terrain';
 
@@ -49,5 +50,6 @@ export function generateMap({ width, height, seed }: MapGeneratorOptions): MapDa
     }
   }
 
-  return { seed, width, height, elevation, terrain };
+  const resources = generateResources({ seed, terrain });
+  return { seed, width, height, elevation, terrain, resources };
 }

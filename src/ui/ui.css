@@ -45,3 +45,7 @@
   list-style: none;
   margin-left: -16px;
 }
+
+.tile-tooltip__value {
+  margin-bottom: 6px;
+}

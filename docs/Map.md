@@ -5,6 +5,7 @@
 - Elevation = fractal simplex noise (`simplex-noise`), several octaves.
 - Multiplied by an edge falloff (square-bump distance, 0 at center, 1 at edges), so edges are always water.
 - Terrain is picked from elevation via `TERRAIN_DEFS` in `src/map/terrain.ts` (deep water → water → sand → grass → stone).
+- Each terrain has a `movementSpeed` (fraction of full speed, 0 = impassable). Grass is 1; sand and stone are slower; water is impassable. Shown in the tooltip as a percentage.
 - Output is `MapData`: flat `Float32Array` elevation + `Uint8Array` terrain ids, indexed `y * width + x`.
 
 ## Rendering (`src/map/MapRenderer.ts`)
@@ -25,4 +26,4 @@
 - `TileHover` converts the pointer to a cell every frame (so it stays correct while the camera pans) and emits `TILE_HOVERED` with `CellInfo` only when the cell changes, or `TILE_HOVER_ENDED`.
 - `TileHighlight` draws the outline; its line width is scaled by zoom to stay the same on screen.
 - `TileTooltip` is a DOM element, not Phaser. Decision: menus and panels are HTML/CSS overlays (`src/ui/`), since they're easier to lay out and style than in-canvas UI.
-- `getCellInfo` in `MapData.ts` is the single place cell details are assembled. `resources` is empty until resources exist.
+- `getCellInfo` in `MapData.ts` is the single place cell details are assembled, including any resource node and its amount.

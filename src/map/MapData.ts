@@ -1,3 +1,4 @@
+import { getResourceDef, type ResourceDef, type ResourceId } from '../resources/resources';
 import { TERRAIN_DEFS, type TerrainDef } from './terrain';
 
 export interface MapData {
@@ -6,13 +7,25 @@ export interface MapData {
   height: number;
   elevation: Float32Array;
   terrain: Uint8Array;
+  // Keyed by cell index; at most one resource node per cell.
+  resources: Map<number, ResourceNode>;
+}
+
+export interface ResourceNode {
+  id: ResourceId;
+  amount: number;
+}
+
+export interface CellResource {
+  def: ResourceDef;
+  amount: number;
 }
 
 export interface CellInfo {
   x: number;
   y: number;
   terrain: TerrainDef;
-  resources: string[];
+  resources: CellResource[];
 }
 
 export function cellIndex(map: MapData, x: number, y: number): number {
@@ -24,11 +37,12 @@ export function isInBounds(map: MapData, x: number, y: number): boolean {
 }
 
 export function getCellInfo(map: MapData, x: number, y: number): CellInfo {
-  const terrainId = map.terrain[cellIndex(map, x, y)];
+  const index = cellIndex(map, x, y);
+  const node = map.resources.get(index);
   return {
     x,
     y,
-    terrain: TERRAIN_DEFS.find((def) => def.id === terrainId)!,
-    resources: [],
+    terrain: TERRAIN_DEFS.find((def) => def.id === map.terrain[index])!,
+    resources: node ? [{ def: getResourceDef(node.id), amount: node.amount }] : [],
   };
 }

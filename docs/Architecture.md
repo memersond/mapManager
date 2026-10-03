@@ -12,6 +12,10 @@
 - `src/core/GameEvents.ts` — event name constants (`GAME_EVENTS`).
 - `src/map/` — map data, generation and rendering. See [[Map]].
 - `src/camera/` — camera input controls.
+- `src/resources/` — resource definitions, placement and rendering. See [[Resources]].
+- `src/assets/` — sprite atlas loading and animations. See [[Assets]].
+- `tools/` — build tooling (Aseprite → atlas Vite plugin).
+- `assets/` — source Aseprite files.
 
 ## Decisions
 - Renderer runs with `contextIsolation: true` and no node integration; anything native goes through `preload.cjs`.
